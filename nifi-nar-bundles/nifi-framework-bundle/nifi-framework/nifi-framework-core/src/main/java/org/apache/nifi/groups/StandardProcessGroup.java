@@ -48,6 +48,7 @@ import org.apache.nifi.controller.ControllerService;
 import org.apache.nifi.controller.FlowController;
 import org.apache.nifi.controller.ProcessorNode;
 import org.apache.nifi.controller.PropertyConfiguration;
+import org.apache.nifi.controller.ReportingTaskNode;
 import org.apache.nifi.controller.ScheduledState;
 import org.apache.nifi.controller.Snippet;
 import org.apache.nifi.controller.Template;
@@ -2177,7 +2178,7 @@ public final class StandardProcessGroup implements ProcessGroup {
                 if (descriptor.getControllerServiceDefinition() != null) {
                     final String value = entry.getValue() == null ? descriptor.getDefaultValue() : entry.getValue();
                     if (value != null) {
-                        final ControllerServiceNode referencedNode = getControllerService(value);
+                        final ControllerServiceNode referencedNode = controllerServiceProvider.getControllerServiceNode(value);
                         if (referencedNode != null) {
                             referencedNode.removeReference(service, descriptor);
                         }
@@ -3065,9 +3066,24 @@ public final class StandardProcessGroup implements ProcessGroup {
                     final boolean overridden = childRegistry.getVariableMap().containsKey(descriptor);
                     if (!overridden) {
                         final Set<ComponentNode> affectedComponents = childGroup.getComponentsAffectedByVariable(variableName);
-                        if (!affectedComponents.isEmpty()) {
-                            throw new IllegalStateException("Cannot update variable '" + variableName + "' because it is referenced by " + affectedComponents.size() + " components that are " +
-                                "currently running.");
+
+                        for (final ComponentNode affectedComponent : affectedComponents) {
+                            if (affectedComponent instanceof ProcessorNode) {
+                                final ProcessorNode affectedProcessor = (ProcessorNode) affectedComponent;
+                                if (affectedProcessor.isRunning()) {
+                                    throw new IllegalStateException("Cannot update variable '" + variableName + "' because it is referenced by " + affectedComponent + ", which is currently running.");
+                                }
+                            } else if (affectedComponent instanceof ControllerServiceNode) {
+                                final ControllerServiceNode affectedService = (ControllerServiceNode) affectedComponent;
+                                if (affectedService.isActive()) {
+                                    throw new IllegalStateException("Cannot update variable '" + variableName + "' because it is referenced by " + affectedComponent + ", which is currently active.");
+                                }
+                            } else if (affectedComponent instanceof ReportingTaskNode) {
+                                final ReportingTaskNode affectedReportingTask = (ReportingTaskNode) affectedComponent;
+                                if (affectedReportingTask.isRunning()) {
+                                    throw new IllegalStateException("Cannot update variable '" + variableName + "' because it is referenced by " + affectedComponent + ", which is currently running.");
+                                }
+                            }
                         }
                     }
                 }
