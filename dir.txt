@@ -1,0 +1,35 @@
+ Volume in drive D is GIT
+ Volume Serial Number is 32B6-4350
+
+ Directory of D:\nifi
+
+01/06/2020  04:29 PM    <DIR>          .
+01/06/2020  04:29 PM    <DIR>          ..
+01/06/2020  03:42 PM    <DIR>          .github
+01/06/2020  03:42 PM               167 .gitignore
+01/06/2020  03:42 PM               870 .travis-output-filters
+01/06/2020  03:42 PM             1,347 .travis.sh
+01/06/2020  03:42 PM             6,901 .travis.yml
+01/06/2020  03:42 PM             1,677 appveyor.yml
+01/06/2020  04:29 PM                 0 dir.txt
+01/06/2020  03:42 PM            68,701 KEYS
+01/06/2020  03:42 PM            21,553 LICENSE
+01/06/2020  03:42 PM    <DIR>          nifi-api
+01/06/2020  03:42 PM    <DIR>          nifi-assembly
+01/06/2020  03:42 PM    <DIR>          nifi-bootstrap
+01/06/2020  03:42 PM    <DIR>          nifi-commons
+01/06/2020  03:42 PM    <DIR>          nifi-docker
+01/06/2020  03:42 PM    <DIR>          nifi-docs
+01/06/2020  03:42 PM    <DIR>          nifi-external
+01/06/2020  03:42 PM    <DIR>          nifi-framework-api
+01/06/2020  03:42 PM    <DIR>          nifi-maven-archetypes
+01/06/2020  03:42 PM    <DIR>          nifi-mock
+01/06/2020  03:42 PM    <DIR>          nifi-nar-bundles
+01/06/2020  03:42 PM    <DIR>          nifi-system-tests
+01/06/2020  03:57 PM    <DIR>          nifi-toolkit
+01/06/2020  03:42 PM             7,421 NOTICE
+01/06/2020  03:42 PM            44,994 pom.xml
+01/06/2020  03:42 PM             9,443 README.md
+01/06/2020  03:42 PM             3,480 SECURITY.md
+              12 File(s)        166,554 bytes
+              16 Dir(s)  998,456,451,072 bytes free
