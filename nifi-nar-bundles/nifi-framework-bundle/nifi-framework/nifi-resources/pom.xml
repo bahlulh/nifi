@@ -18,7 +18,7 @@
     <parent>
         <groupId>org.apache.nifi</groupId>
         <artifactId>nifi-framework</artifactId>
-        <version>1.11.0-SNAPSHOT</version>
+        <version>1.12.0-SNAPSHOT</version>
     </parent>
     <artifactId>nifi-resources</artifactId>
     <packaging>pom</packaging>
@@ -59,6 +59,10 @@
         <nifi.flowfile.repository.partitions>256</nifi.flowfile.repository.partitions>
         <nifi.flowfile.repository.checkpoint.interval>2 mins</nifi.flowfile.repository.checkpoint.interval>
         <nifi.flowfile.repository.always.sync>false</nifi.flowfile.repository.always.sync>
+        <nifi.flowfile.repository.encryption.key.provider.implementation />
+        <nifi.flowfile.repository.encryption.key.provider.location />
+        <nifi.flowfile.repository.encryption.key.id />
+        <nifi.flowfile.repository.encryption.key />
         <nifi.swap.manager.implementation>org.apache.nifi.controller.FileSystemSwapManager</nifi.swap.manager.implementation>
         <nifi.queue.swap.threshold>20000</nifi.queue.swap.threshold>
         <nifi.swap.in.period>5 sec</nifi.swap.in.period>
@@ -74,6 +78,10 @@
         <nifi.content.repository.archive.max.usage.percentage>50%</nifi.content.repository.archive.max.usage.percentage>
         <nifi.content.repository.archive.enabled>true</nifi.content.repository.archive.enabled>
         <nifi.content.repository.always.sync>false</nifi.content.repository.always.sync>
+        <nifi.content.repository.encryption.key.provider.implementation />
+        <nifi.content.repository.encryption.key.provider.location />
+        <nifi.content.repository.encryption.key.id />
+        <nifi.content.repository.encryption.key />
         <nifi.content.viewer.url>../nifi-content-viewer/</nifi.content.viewer.url>
 
         <nifi.restore.directory />
@@ -136,7 +144,8 @@
         <nifi.web.max.header.size>16 KB</nifi.web.max.header.size>
         <nifi.web.proxy.context.path />
         <nifi.web.proxy.host />
-
+        <nifi.web.max.content.size>20 MB</nifi.web.max.content.size>
+        <nifi.web.max.requests.per.second>30000</nifi.web.max.requests.per.second>
         <!-- nifi.properties: security properties -->
         <nifi.security.keystore />
         <nifi.security.keystoreType />

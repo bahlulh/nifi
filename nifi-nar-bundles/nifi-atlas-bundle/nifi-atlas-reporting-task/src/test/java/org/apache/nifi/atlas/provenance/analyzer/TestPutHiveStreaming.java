@@ -16,7 +16,7 @@
  */
 package org.apache.nifi.atlas.provenance.analyzer;
 
-import org.apache.atlas.typesystem.Referenceable;
+import org.apache.atlas.v1.model.instance.Referenceable;
 import org.apache.nifi.atlas.provenance.AnalysisContext;
 import org.apache.nifi.atlas.provenance.DataSetRefs;
 import org.apache.nifi.atlas.provenance.NiFiProvenanceEventAnalyzer;
@@ -38,8 +38,16 @@ import static org.mockito.Mockito.when;
 public class TestPutHiveStreaming {
 
     @Test
-    public void testTableLineage() {
-        final String processorName = "PutHiveStreaming";
+    public void testTableLineageHive1() {
+        testTableLineage("PutHiveStreaming");
+    }
+
+    @Test
+    public void testTableLineageHive3() {
+        testTableLineage("PutHive3Streaming");
+    }
+
+    private void testTableLineage(String processorName) {
         final String transitUri = "thrift://0.example.com:9083";
         final ProvenanceEventRecord record = Mockito.mock(ProvenanceEventRecord.class);
         when(record.getComponentType()).thenReturn(processorName);

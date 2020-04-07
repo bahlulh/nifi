@@ -16,7 +16,7 @@
  */
 package org.apache.nifi.atlas.provenance.analyzer;
 
-import org.apache.atlas.typesystem.Referenceable;
+import org.apache.atlas.v1.model.instance.Referenceable;
 import org.apache.nifi.atlas.provenance.AnalysisContext;
 import org.apache.nifi.atlas.provenance.DataSetRefs;
 import org.apache.nifi.provenance.ProvenanceEventRecord;
@@ -37,6 +37,9 @@ public class PutHiveStreaming extends AbstractHiveAnalyzer {
 
     @Override
     public DataSetRefs analyze(AnalysisContext context, ProvenanceEventRecord event) {
+        if (event.getTransitUri() == null) {
+            return null;
+        }
 
         final URI uri = parseUri(event.getTransitUri());
         final String clusterName = context.getClusterResolver().fromHostNames(uri.getHost());
@@ -55,6 +58,6 @@ public class PutHiveStreaming extends AbstractHiveAnalyzer {
 
     @Override
     public String targetComponentTypePattern() {
-        return "^PutHiveStreaming$";
+        return "^PutHive(3)?Streaming$";
     }
 }

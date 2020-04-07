@@ -21,6 +21,7 @@ import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.annotation.lifecycle.OnDisabled;
 import org.apache.nifi.annotation.lifecycle.OnEnabled;
 import org.apache.nifi.components.PropertyDescriptor;
+import org.apache.nifi.components.state.StateManager;
 import org.apache.nifi.controller.AbstractControllerService;
 import org.apache.nifi.controller.ConfigurationContext;
 import org.apache.nifi.controller.ControllerServiceInitializationContext;
@@ -61,6 +62,7 @@ public class SiteToSiteReportingRecordSink extends AbstractControllerService imp
     private List<PropertyDescriptor> properties;
     private volatile SiteToSiteClient siteToSiteClient;
     private volatile RecordSetWriterFactory writerFactory;
+    private volatile StateManager stateManager;
 
     @Override
     protected void init(final ControllerServiceInitializationContext context) {
@@ -79,6 +81,7 @@ public class SiteToSiteReportingRecordSink extends AbstractControllerService imp
         properties.add(SiteToSiteUtils.HTTP_PROXY_USERNAME);
         properties.add(SiteToSiteUtils.HTTP_PROXY_PASSWORD);
         this.properties = Collections.unmodifiableList(properties);
+        this.stateManager = context.getStateManager();
     }
 
     @Override
@@ -118,6 +121,7 @@ public class SiteToSiteReportingRecordSink extends AbstractControllerService imp
                     .useCompression(context.getProperty(SiteToSiteUtils.COMPRESS).asBoolean())
                     .eventReporter(eventReporter)
                     .sslContext(sslContext)
+                    .stateManager(stateManager)
                     .timeout(context.getProperty(SiteToSiteUtils.TIMEOUT).asTimePeriod(TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
                     .transportProtocol(mode)
                     .httpProxy(httpProxy)
@@ -131,10 +135,10 @@ public class SiteToSiteReportingRecordSink extends AbstractControllerService imp
 
     @Override
     public WriteResult sendData(final RecordSet recordSet, final Map<String,String> attributes, final boolean sendZeroResults) throws IOException {
-
+        Transaction transaction = null;
         try {
             WriteResult writeResult = null;
-            final Transaction transaction = getClient().createTransaction(TransferDirection.SEND);
+            transaction = getClient().createTransaction(TransferDirection.SEND);
             if (transaction == null) {
                 getLogger().info("All destination nodes are penalized; will attempt to send data later");
             } else {
@@ -157,17 +161,21 @@ public class SiteToSiteReportingRecordSink extends AbstractControllerService imp
 
                 if (recordCount > 0 || sendZeroResults) {
                     transaction.send(out.toByteArray(), attributes);
+                    transaction.confirm();
+                    transaction.complete();
                 }
-                transaction.confirm();
-                transaction.complete();
             }
             return writeResult;
-        } catch(IOException ioe) {
-            throw ioe;
         } catch (Exception e) {
-            throw new IOException("Failed to write metrics using record writer: " + e.getMessage(), e);
+            if (transaction != null) {
+                transaction.error();
+            }
+            if (e instanceof IOException) {
+                throw (IOException) e;
+            } else {
+                throw new IOException("Failed to write metrics using record writer: " + e.getMessage(), e);
+            }
         }
-
     }
 
     @OnDisabled
@@ -175,6 +183,7 @@ public class SiteToSiteReportingRecordSink extends AbstractControllerService imp
         final SiteToSiteClient client = getClient();
         if (client != null) {
             client.close();
+            this.siteToSiteClient = null;
         }
     }
 

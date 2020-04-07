@@ -17,3 +17,5 @@ org.apache.nifi.processors.tests.system.CountEvents
 org.apache.nifi.processors.tests.system.GenerateFlowFile
 org.apache.nifi.processors.tests.system.Sleep
 org.apache.nifi.processors.tests.system.ValidateFileExists
+org.apache.nifi.processors.tests.system.FakeProcessor
+org.apache.nifi.processors.tests.system.FakeDynamicPropertiesProcessor
