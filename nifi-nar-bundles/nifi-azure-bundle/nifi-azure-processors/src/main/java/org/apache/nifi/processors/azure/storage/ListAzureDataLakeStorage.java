@@ -21,20 +21,14 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.microsoft.azure.storage.OperationContext;
-import com.microsoft.azure.storage.StorageUri;
-import com.microsoft.azure.storage.blob.BlobListingDetails;
-import com.microsoft.azure.storage.blob.BlobProperties;
-import com.microsoft.azure.storage.blob.CloudBlob;
-import com.microsoft.azure.storage.blob.CloudBlobClient;
-import com.microsoft.azure.storage.blob.CloudBlobContainer;
-import com.microsoft.azure.storage.blob.CloudBlockBlob;
-import com.microsoft.azure.storage.blob.ListBlobItem;
+import com.azure.storage.file.datalake.DataLakeFileSystemClient;
+import com.azure.storage.file.datalake.DataLakeServiceClient;
+import com.azure.storage.file.datalake.models.ListPathsOptions;
+import com.azure.storage.file.datalake.models.PathItem;
 
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.nifi.annotation.behavior.InputRequirement;
@@ -49,16 +43,12 @@ import org.apache.nifi.components.ValidationContext;
 import org.apache.nifi.components.ValidationResult;
 import org.apache.nifi.components.state.Scope;
 import org.apache.nifi.context.PropertyContext;
-import org.apache.nifi.expression.ExpressionLanguageScope;
 import org.apache.nifi.processor.ProcessContext;
-import org.apache.nifi.processor.util.StandardValidators;
 import org.apache.nifi.processor.util.list.AbstractListProcessor;
-import org.apache.nifi.processor.util.list.ListedEntityTracker;
+import org.apache.nifi.processors.azure.AbstractAzureDataLakeStorageProcessor;
 import org.apache.nifi.processors.azure.storage.utils.AzureStorageUtils;
 import org.apache.nifi.processors.azure.storage.utils.BlobInfo;
 import org.apache.nifi.processors.azure.storage.utils.BlobInfo.Builder;
-import org.apache.nifi.processors.azure.AbstractAzureDataLakeStorageProcessor;
-
 
 @Tags({"azure", "microsoft", "cloud", "storage", "adlsgen2", "datalake"})
 @SeeAlso({DeleteAzureDataLakeStorage.class})
@@ -74,9 +64,9 @@ public class ListAzureDataLakeStorage extends AbstractListProcessor<BlobInfo> {
 
     private static final List<PropertyDescriptor> PROPERTIES = Collections.unmodifiableList(
                 Arrays.asList(
-                    AbstractAzureDataLakeStorageProcessor.ACCOUNT_NAME, 
+                    AbstractAzureDataLakeStorageProcessor.ACCOUNT_NAME,
                     AbstractAzureDataLakeStorageProcessor.ACCOUNT_KEY,
-                    AbstractAzureDataLakeStorageProcessor.SAS_TOKEN, 
+                    AbstractAzureDataLakeStorageProcessor.SAS_TOKEN,
                     AbstractAzureDataLakeStorageProcessor.FILESYSTEM,
                     AbstractAzureDataLakeStorageProcessor.DIRECTORY));
 
@@ -105,22 +95,48 @@ public class ListAzureDataLakeStorage extends AbstractListProcessor<BlobInfo> {
     }
 
     @Override
-    protected List<BlobInfo> performListing(final ProcessContext context, final Long minTimestamp) throws IOException {
+    protected boolean isListingResetNecessary(final PropertyDescriptor property) {
+        return true;
+    }
 
-        final String fileSystem = context.getProperty(FILESYSTEM).evaluateAttributeExpressions(flowFile).getValue();
-        final String directory = context.getProperty(DIRECTORY).evaluateAttributeExpressions(flowFile).getValue();
-        
+    @Override
+    protected Map<String, String> createAttributes(BlobInfo entity, ProcessContext context) {
+        final Map<String, String> attributes = new HashMap<>();
+        attributes.put("azure.container", entity.getContainerName());
+        attributes.put("azure.etag", entity.getEtag());
+        attributes.put("azure.primaryUri", entity.getPrimaryUri());
+        attributes.put("azure.secondaryUri", entity.getSecondaryUri());
+        attributes.put("azure.blobname", entity.getBlobName());
+        attributes.put("filename", entity.getName());
+        attributes.put("azure.blobtype", entity.getBlobType());
+        attributes.put("azure.length", String.valueOf(entity.getLength()));
+        attributes.put("azure.timestamp", String.valueOf(entity.getTimestamp()));
+        attributes.put("mime.type", entity.getContentType());
+        attributes.put("lang", entity.getContentLanguage());
+
+        return attributes;
+    }
+
+    @Override
+    protected String getPath(final ProcessContext context) {
+        return "";
+    }
+
+    @Override
+    protected List<BlobInfo> performListing(final ProcessContext context, final Long minTimestamp) throws IOException {
+        final String fileSystem = context.getProperty(AbstractAzureDataLakeStorageProcessor.FILESYSTEM).getValue();
+        final String directory = context.getProperty(AbstractAzureDataLakeStorageProcessor.DIRECTORY).getValue();
+
         final List<BlobInfo> listing = new ArrayList<>();
         try {
-            final DataLakeServiceClient storageClient = AbstractAzureDataLakeStorageProcessor.getStorageClient(context, flowFile);
+            final DataLakeServiceClient storageClient = AbstractAzureDataLakeStorageProcessor.getStorageClient(context, null);
             final DataLakeFileSystemClient dataLakeFileSystemClient = storageClient.getFileSystemClient(fileSystem);
 
             ListPathsOptions options = new ListPathsOptions();
             options.setPath(directory);
-            PagedIterable<PathItem> pagedIterable = dataLakeFileSystemClient.listPaths(options, null);
 
-            java.util.Iterator<PathItem> iterator = pagedIterable.iterator();
-            
+            java.util.Iterator<PathItem> iterator = dataLakeFileSystemClient.listPaths(options, null).iterator();
+
             PathItem item = iterator.next();
 
             while (item != null){
@@ -128,7 +144,7 @@ public class ListAzureDataLakeStorage extends AbstractListProcessor<BlobInfo> {
                 if (!iterator.hasNext()){
                     break;
                 }
-                    
+
                 listing.add(builder.build());
                 item = iterator.next();
             }
