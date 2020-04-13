@@ -16,12 +16,27 @@
  */
 package org.apache.nifi.processors.azure.storage;
 
-import java.io.BufferedInputStream;
-import java.io.InputStream;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
+import com.microsoft.azure.storage.OperationContext;
+import com.microsoft.azure.storage.StorageUri;
+import com.microsoft.azure.storage.blob.BlobListingDetails;
+import com.microsoft.azure.storage.blob.BlobProperties;
+import com.microsoft.azure.storage.blob.CloudBlob;
+import com.microsoft.azure.storage.blob.CloudBlobClient;
+import com.microsoft.azure.storage.blob.CloudBlobContainer;
+import com.microsoft.azure.storage.blob.CloudBlockBlob;
+import com.microsoft.azure.storage.blob.ListBlobItem;
+
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.nifi.annotation.behavior.InputRequirement;
 import org.apache.nifi.annotation.behavior.InputRequirement.Requirement;
 import org.apache.nifi.annotation.behavior.WritesAttribute;
@@ -29,15 +44,19 @@ import org.apache.nifi.annotation.behavior.WritesAttributes;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.SeeAlso;
 import org.apache.nifi.annotation.documentation.Tags;
-import org.apache.nifi.flowfile.FlowFile;
+import org.apache.nifi.components.PropertyDescriptor;
+import org.apache.nifi.components.ValidationContext;
+import org.apache.nifi.components.ValidationResult;
+import org.apache.nifi.components.state.Scope;
+import org.apache.nifi.context.PropertyContext;
+import org.apache.nifi.expression.ExpressionLanguageScope;
 import org.apache.nifi.processor.ProcessContext;
-import org.apache.nifi.processor.ProcessSession;
-import org.apache.nifi.processor.exception.ProcessException;
-
-import com.azure.storage.file.datalake.DataLakeDirectoryClient;
-import com.azure.storage.file.datalake.DataLakeFileClient;
-import com.azure.storage.file.datalake.DataLakeFileSystemClient;
-import com.azure.storage.file.datalake.DataLakeServiceClient;
+import org.apache.nifi.processor.util.StandardValidators;
+import org.apache.nifi.processor.util.list.AbstractListProcessor;
+import org.apache.nifi.processor.util.list.ListedEntityTracker;
+import org.apache.nifi.processors.azure.storage.utils.AzureStorageUtils;
+import org.apache.nifi.processors.azure.storage.utils.BlobInfo;
+import org.apache.nifi.processors.azure.storage.utils.BlobInfo.Builder;
 import org.apache.nifi.processors.azure.AbstractAzureDataLakeStorageProcessor;
 
 
@@ -51,47 +70,71 @@ import org.apache.nifi.processors.azure.AbstractAzureDataLakeStorageProcessor;
         @WritesAttribute(attribute = "azure.length", description = "Length of the file")})
 @InputRequirement(Requirement.INPUT_REQUIRED)
 
-public class ListAzureDataLakeStorage extends AbstractAzureDataLakeStorageProcessor {
+public class ListAzureDataLakeStorage extends AbstractListProcessor<BlobInfo> {
+
+    private static final List<PropertyDescriptor> PROPERTIES = Collections.unmodifiableList(
+                Arrays.asList(
+                    AbstractAzureDataLakeStorageProcessor.ACCOUNT_NAME, 
+                    AbstractAzureDataLakeStorageProcessor.ACCOUNT_KEY,
+                    AbstractAzureDataLakeStorageProcessor.SAS_TOKEN, 
+                    AbstractAzureDataLakeStorageProcessor.FILESYSTEM,
+                    AbstractAzureDataLakeStorageProcessor.DIRECTORY));
 
     @Override
-    public void onTrigger(final ProcessContext context, final ProcessSession session) throws ProcessException {
-        FlowFile flowFile = session.get();
-        if (flowFile == null) {
-            return;
-        }
-        final long startNanos = System.nanoTime();
+    protected List<PropertyDescriptor> getSupportedPropertyDescriptors() {
+        return PROPERTIES;
+    }
+
+    @Override
+    protected void customValidate(ValidationContext validationContext, Collection<ValidationResult> results) {
+        results.addAll(AzureStorageUtils.validateCredentialProperties(validationContext));
+        AzureStorageUtils.validateProxySpec(validationContext, results);
+    }
+
+    @Override
+    protected Scope getStateScope(final PropertyContext context) {
+        return Scope.CLUSTER;
+    }
+
+    @Override
+    protected String getDefaultTimePrecision() {
+        // User does not have to choose one.
+        // AUTO_DETECT can handle most cases, but it may incur longer latency
+        // when all listed files do not have SECOND part in their timestamps although Azure Blob Storage does support seconds.
+        return PRECISION_SECONDS.getValue();
+    }
+
+    @Override
+    protected List<BlobInfo> performListing(final ProcessContext context, final Long minTimestamp) throws IOException {
+
+        final String fileSystem = context.getProperty(FILESYSTEM).evaluateAttributeExpressions(flowFile).getValue();
+        final String directory = context.getProperty(DIRECTORY).evaluateAttributeExpressions(flowFile).getValue();
+        
+        final List<BlobInfo> listing = new ArrayList<>();
         try {
-            final String fileSystem = context.getProperty(FILESYSTEM).evaluateAttributeExpressions(flowFile).getValue();
-            final String directory = context.getProperty(DIRECTORY).evaluateAttributeExpressions(flowFile).getValue();
-            final String fileName = context.getProperty(FILE).evaluateAttributeExpressions(flowFile).getValue();
-            final DataLakeServiceClient storageClient = getStorageClient(context, flowFile);
+            final DataLakeServiceClient storageClient = AbstractAzureDataLakeStorageProcessor.getStorageClient(context, flowFile);
             final DataLakeFileSystemClient dataLakeFileSystemClient = storageClient.getFileSystemClient(fileSystem);
-            final DataLakeDirectoryClient directoryClient = dataLakeFileSystemClient.getDirectoryClient(directory);
-            final DataLakeFileClient fileClient = directoryClient.createFile(fileName);
-            final long length = flowFile.getSize();
-            if (length > 0) {
-                try (final InputStream rawIn = session.read(flowFile); final BufferedInputStream in = new BufferedInputStream(rawIn)) {
-                    fileClient.append(in, 0, length);
 
+            ListPathsOptions options = new ListPathsOptions();
+            options.setPath(directory);
+            PagedIterable<PathItem> pagedIterable = dataLakeFileSystemClient.listPaths(options, null);
+
+            java.util.Iterator<PathItem> iterator = pagedIterable.iterator();
+            
+            PathItem item = iterator.next();
+
+            while (item != null){
+                Builder builder = new BlobInfo.Builder().blobName(item.getName());
+                if (!iterator.hasNext()){
+                    break;
                 }
+                    
+                listing.add(builder.build());
+                item = iterator.next();
             }
-            fileClient.flush(length);
-            final Map<String, String> attributes = new HashMap<>();
-            attributes.put("azure.filesystem", fileSystem);
-            attributes.put("azure.directory", directory);
-            attributes.put("azure.filename", fileName);
-            attributes.put("azure.primaryUri", fileClient.getFileUrl());
-            attributes.put("azure.length", String.valueOf(length));
-            flowFile = session.putAllAttributes(flowFile, attributes);
-
-
-            session.transfer(flowFile, REL_SUCCESS);
-            final long transferMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
-            session.getProvenanceReporter().send(flowFile, fileClient.getFileUrl(), transferMillis);
-        } catch (Exception e) {
-            getLogger().error("Failed to create file, due to {}", e);
-            flowFile = session.penalize(flowFile);
-            session.transfer(flowFile, REL_FAILURE);
+        } catch (Throwable t) {
+            throw new IOException(ExceptionUtils.getRootCause(t));
         }
+        return listing;
     }
 }
