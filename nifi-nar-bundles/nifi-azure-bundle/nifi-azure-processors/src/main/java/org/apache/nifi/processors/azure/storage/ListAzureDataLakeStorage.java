@@ -70,10 +70,7 @@ public class ListAzureDataLakeStorage extends AbstractListProcessor<BlobInfo> {
                     AbstractAzureDataLakeStorageProcessor.ACCOUNT_NAME,
                     AbstractAzureDataLakeStorageProcessor.ACCOUNT_KEY,
                     AbstractAzureDataLakeStorageProcessor.FILESYSTEM,
-                    AbstractAzureDataLakeStorageProcessor.DIRECTORY,
-                    ListedEntityTracker.TRACKING_STATE_CACHE,
-                    ListedEntityTracker.TRACKING_TIME_WINDOW,
-                    ListedEntityTracker.INITIAL_LISTING_TARGET));
+                    AbstractAzureDataLakeStorageProcessor.DIRECTORY));
 
     @Override
     protected List<PropertyDescriptor> getSupportedPropertyDescriptors() {
@@ -93,9 +90,6 @@ public class ListAzureDataLakeStorage extends AbstractListProcessor<BlobInfo> {
 
     @Override
     protected String getDefaultTimePrecision() {
-        // User does not have to choose one.
-        // AUTO_DETECT can handle most cases, but it may incur longer latency
-        // when all listed files do not have SECOND part in their timestamps although Azure Blob Storage does support seconds.
         return PRECISION_SECONDS.getValue();
     }
 
@@ -107,18 +101,6 @@ public class ListAzureDataLakeStorage extends AbstractListProcessor<BlobInfo> {
     @Override
     protected Map<String, String> createAttributes(BlobInfo entity, ProcessContext context) {
         final Map<String, String> attributes = new HashMap<>();
-        attributes.put("azure.container", entity.getContainerName());
-        attributes.put("azure.etag", entity.getEtag());
-        attributes.put("azure.primaryUri", entity.getPrimaryUri());
-        attributes.put("azure.secondaryUri", entity.getSecondaryUri());
-        attributes.put("azure.blobname", entity.getBlobName());
-        attributes.put("filename", entity.getName());
-        attributes.put("azure.blobtype", entity.getBlobType());
-        attributes.put("azure.length", String.valueOf(entity.getLength()));
-        attributes.put("azure.timestamp", String.valueOf(entity.getTimestamp()));
-        attributes.put("mime.type", entity.getContentType());
-        attributes.put("lang", entity.getContentLanguage());
-
         return attributes;
     }
 
@@ -132,29 +114,17 @@ public class ListAzureDataLakeStorage extends AbstractListProcessor<BlobInfo> {
         final String fileSystem = context.getProperty(AbstractAzureDataLakeStorageProcessor.FILESYSTEM).getValue();
         final String directory = context.getProperty(AbstractAzureDataLakeStorageProcessor.DIRECTORY).getValue();
 
-        getLogger().info("ACCOUNT_NAME: " + context.getProperty(AbstractAzureDataLakeStorageProcessor.ACCOUNT_NAME).getValue());
-        getLogger().info("ACCOUNT_KEY: " + context.getProperty(AbstractAzureDataLakeStorageProcessor.ACCOUNT_KEY).getValue());
-        getLogger().info("FILESYSTEM: " + context.getProperty(AbstractAzureDataLakeStorageProcessor.FILESYSTEM).getValue());
-        getLogger().info("DIRECTORY: " + context.getProperty(AbstractAzureDataLakeStorageProcessor.DIRECTORY).getValue());
-
         final List<BlobInfo> listing = new ArrayList<>();
         try {
             final DataLakeServiceClient storageClient = AbstractAzureDataLakeStorageProcessor.getStorageClient(context, null);
-            getLogger().info("storageClient created.");
             final DataLakeFileSystemClient dataLakeFileSystemClient = storageClient.getFileSystemClient(fileSystem);
-            getLogger().info("dataLakeFileSystemClient created.");
-
             ListPathsOptions options = new ListPathsOptions();
             options.setPath(directory);
 
             java.util.Iterator<PathItem> iterator = dataLakeFileSystemClient.listPaths(options, null).iterator();
-            getLogger().info("iterator created.");
             PathItem item = iterator.next();
-            getLogger().info("item created.");
             while (item != null){
-                getLogger().info("while started.");
                 Builder builder = new BlobInfo.Builder().blobName(item.getName());
-                 getLogger().info("item created.");
                 if (!iterator.hasNext()){
                     break;
                 }
@@ -163,7 +133,7 @@ public class ListAzureDataLakeStorage extends AbstractListProcessor<BlobInfo> {
                 item = iterator.next();
             }
         } catch (Throwable t) {
-            getLogger().info("Bahlul Exception:" + t.toString());
+            getLogger().info("Original Exception: " + ExceptionUtils.getStackTrace(t));
             throw new IOException(ExceptionUtils.getRootCause(t));
         }
         return listing;
