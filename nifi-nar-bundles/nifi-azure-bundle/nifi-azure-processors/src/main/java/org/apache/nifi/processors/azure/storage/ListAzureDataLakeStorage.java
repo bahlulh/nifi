@@ -131,8 +131,12 @@ public class ListAzureDataLakeStorage extends AbstractListProcessor<BlobInfo> {
     protected List<BlobInfo> performListing(final ProcessContext context, final Long minTimestamp) throws IOException {
         final String fileSystem = context.getProperty(AbstractAzureDataLakeStorageProcessor.FILESYSTEM).getValue();
         final String directory = context.getProperty(AbstractAzureDataLakeStorageProcessor.DIRECTORY).getValue();
-        getLogger().info("fileSystem: " + fileSystem);
-        getLogger().info("directory: " + directory);
+
+        getLogger().info("ACCOUNT_NAME: " + context.getProperty(AbstractAzureDataLakeStorageProcessor.ACCOUNT_NAME).getValue());
+        getLogger().info("ACCOUNT_KEY: " + context.getProperty(AbstractAzureDataLakeStorageProcessor.ACCOUNT_KEY).getValue());
+        getLogger().info("FILESYSTEM: " + context.getProperty(AbstractAzureDataLakeStorageProcessor.FILESYSTEM).getValue());
+        getLogger().info("DIRECTORY: " + context.getProperty(AbstractAzureDataLakeStorageProcessor.DIRECTORY).getValue());
+
         final List<BlobInfo> listing = new ArrayList<>();
         try {
             final DataLakeServiceClient storageClient = AbstractAzureDataLakeStorageProcessor.getStorageClient(context, null);
@@ -159,6 +163,7 @@ public class ListAzureDataLakeStorage extends AbstractListProcessor<BlobInfo> {
                 item = iterator.next();
             }
         } catch (Throwable t) {
+            getLogger().info("Bahlul Exception:" + t.toString());
             throw new IOException(ExceptionUtils.getRootCause(t));
         }
         return listing;
