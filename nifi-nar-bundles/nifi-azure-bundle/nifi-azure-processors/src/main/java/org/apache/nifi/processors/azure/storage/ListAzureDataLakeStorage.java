@@ -49,6 +49,7 @@ import org.apache.nifi.processors.azure.AbstractAzureDataLakeStorageProcessor;
 import org.apache.nifi.processors.azure.storage.utils.AzureStorageUtils;
 import org.apache.nifi.processors.azure.storage.utils.BlobInfo;
 import org.apache.nifi.processors.azure.storage.utils.BlobInfo.Builder;
+import org.apache.nifi.processor.util.list.ListedEntityTracker;
 
 @Tags({"azure", "microsoft", "cloud", "storage", "adlsgen2", "datalake"})
 @SeeAlso({DeleteAzureDataLakeStorage.class})
@@ -56,6 +57,7 @@ import org.apache.nifi.processors.azure.storage.utils.BlobInfo.Builder;
 @WritesAttributes({@WritesAttribute(attribute = "azure.filesystem", description = "The name of the Azure File System"),
         @WritesAttribute(attribute = "azure.directory", description = "The name of the Azure Directory"),
         @WritesAttribute(attribute = "azure.filename", description = "The name of the Azure File Name"),
+        @WritesAttribute(attribute = "azure.timestamp", description = "The timestamp in Azure for the blob"),
         @WritesAttribute(attribute = "azure.primaryUri", description = "Primary location for file content"),
         @WritesAttribute(attribute = "azure.length", description = "Length of the file")})
 @InputRequirement(Requirement.INPUT_REQUIRED)
@@ -64,11 +66,14 @@ public class ListAzureDataLakeStorage extends AbstractListProcessor<BlobInfo> {
 
     private static final List<PropertyDescriptor> PROPERTIES = Collections.unmodifiableList(
                 Arrays.asList(
+                    LISTING_STRATEGY,
                     AbstractAzureDataLakeStorageProcessor.ACCOUNT_NAME,
                     AbstractAzureDataLakeStorageProcessor.ACCOUNT_KEY,
-                    AbstractAzureDataLakeStorageProcessor.SAS_TOKEN,
                     AbstractAzureDataLakeStorageProcessor.FILESYSTEM,
-                    AbstractAzureDataLakeStorageProcessor.DIRECTORY));
+                    AbstractAzureDataLakeStorageProcessor.DIRECTORY,
+                    ListedEntityTracker.TRACKING_STATE_CACHE,
+                    ListedEntityTracker.TRACKING_TIME_WINDOW,
+                    ListedEntityTracker.INITIAL_LISTING_TARGET));
 
     @Override
     protected List<PropertyDescriptor> getSupportedPropertyDescriptors() {
@@ -126,21 +131,26 @@ public class ListAzureDataLakeStorage extends AbstractListProcessor<BlobInfo> {
     protected List<BlobInfo> performListing(final ProcessContext context, final Long minTimestamp) throws IOException {
         final String fileSystem = context.getProperty(AbstractAzureDataLakeStorageProcessor.FILESYSTEM).getValue();
         final String directory = context.getProperty(AbstractAzureDataLakeStorageProcessor.DIRECTORY).getValue();
-
+        getLogger().info("fileSystem: " + fileSystem);
+        getLogger().info("directory: " + directory);
         final List<BlobInfo> listing = new ArrayList<>();
         try {
             final DataLakeServiceClient storageClient = AbstractAzureDataLakeStorageProcessor.getStorageClient(context, null);
+            getLogger().info("storageClient created.");
             final DataLakeFileSystemClient dataLakeFileSystemClient = storageClient.getFileSystemClient(fileSystem);
+            getLogger().info("dataLakeFileSystemClient created.");
 
             ListPathsOptions options = new ListPathsOptions();
             options.setPath(directory);
 
             java.util.Iterator<PathItem> iterator = dataLakeFileSystemClient.listPaths(options, null).iterator();
-
+            getLogger().info("iterator created.");
             PathItem item = iterator.next();
-
+            getLogger().info("item created.");
             while (item != null){
+                getLogger().info("while started.");
                 Builder builder = new BlobInfo.Builder().blobName(item.getName());
+                 getLogger().info("item created.");
                 if (!iterator.hasNext()){
                     break;
                 }
