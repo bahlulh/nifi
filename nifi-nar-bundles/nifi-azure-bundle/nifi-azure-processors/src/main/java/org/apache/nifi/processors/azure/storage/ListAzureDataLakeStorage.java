@@ -120,7 +120,7 @@ public class ListAzureDataLakeStorage extends AbstractListProcessor<BlobInfo> {
             PathItem item = iterator.next();
             while (item != null){
                 Builder builder = new BlobInfo.Builder().blobName(item.getName());
-                getLogger().info("item added: " + item.getName());
+                getLogger().debug("item added: " + item.getName());
                 if (!iterator.hasNext()){
                     break;
                 }
