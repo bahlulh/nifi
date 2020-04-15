@@ -51,14 +51,10 @@ import org.apache.nifi.processors.azure.storage.utils.BlobInfo;
 import org.apache.nifi.processors.azure.storage.utils.BlobInfo.Builder;
 
 @Tags({"azure", "microsoft", "cloud", "storage", "adlsgen2", "datalake"})
-@SeeAlso({DeleteAzureDataLakeStorage.class})
-@CapabilityDescription("Puts content into an Azure Data Lake Storage Gen 2")
+@SeeAlso({ DeleteAzureDataLakeStorage.class, PutAzureDataLakeStorage.class })
+@CapabilityDescription("Lists directory in an Azure Data Lake Storage Gen 2 filesystem")
 @WritesAttributes({@WritesAttribute(attribute = "azure.filesystem", description = "The name of the Azure File System"),
-        @WritesAttribute(attribute = "azure.directory", description = "The name of the Azure Directory"),
-        @WritesAttribute(attribute = "azure.filename", description = "The name of the Azure File Name"),
-        @WritesAttribute(attribute = "azure.timestamp", description = "The timestamp in Azure for the blob"),
-        @WritesAttribute(attribute = "azure.primaryUri", description = "Primary location for file content"),
-        @WritesAttribute(attribute = "azure.length", description = "Length of the file")})
+        @WritesAttribute(attribute = "azure.directory", description = "The name of the Azure Directory")})
 @InputRequirement(Requirement.INPUT_REQUIRED)
 
 public class ListAzureDataLakeStorage extends AbstractListProcessor<BlobInfo> {
