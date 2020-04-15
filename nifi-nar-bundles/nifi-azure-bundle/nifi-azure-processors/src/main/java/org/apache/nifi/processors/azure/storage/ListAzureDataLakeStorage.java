@@ -49,7 +49,6 @@ import org.apache.nifi.processors.azure.AbstractAzureDataLakeStorageProcessor;
 import org.apache.nifi.processors.azure.storage.utils.AzureStorageUtils;
 import org.apache.nifi.processors.azure.storage.utils.BlobInfo;
 import org.apache.nifi.processors.azure.storage.utils.BlobInfo.Builder;
-import org.apache.nifi.processor.util.list.ListedEntityTracker;
 
 @Tags({"azure", "microsoft", "cloud", "storage", "adlsgen2", "datalake"})
 @SeeAlso({DeleteAzureDataLakeStorage.class})
@@ -125,6 +124,7 @@ public class ListAzureDataLakeStorage extends AbstractListProcessor<BlobInfo> {
             PathItem item = iterator.next();
             while (item != null){
                 Builder builder = new BlobInfo.Builder().blobName(item.getName());
+                getLogger().info("item added: " + item.getName());
                 if (!iterator.hasNext()){
                     break;
                 }
