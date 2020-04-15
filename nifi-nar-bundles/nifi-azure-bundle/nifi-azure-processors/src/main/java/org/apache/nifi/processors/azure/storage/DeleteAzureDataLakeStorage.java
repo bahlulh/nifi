@@ -35,7 +35,7 @@ import com.azure.storage.file.datalake.DataLakeServiceClient;
 import java.util.concurrent.TimeUnit;
 
 @Tags({"azure", "microsoft", "cloud", "storage", "adlsgen2", "datalake"})
-@SeeAlso({PutAzureDataLakeStorage.class})
+@SeeAlso({ PutAzureDataLakeStorage.class, ListAzureDataLakeStorage.class })
 @CapabilityDescription("Deletes the provided file from Azure Data Lake Storage")
 @InputRequirement(Requirement.INPUT_REQUIRED)
 public class DeleteAzureDataLakeStorage extends AbstractAzureDataLakeStorageProcessor {
